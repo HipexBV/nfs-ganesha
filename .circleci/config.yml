@@ -1,0 +1,41 @@
+version: 2.1
+
+orbs:
+  codacy: codacy/base@1.0.0
+
+workflows:
+  version: 2
+  test-and-publish:
+    jobs:
+      - codacy/checkout_and_version:
+          write_sbt_version: false
+      - codacy/shell:
+          name: build_docker
+          requires:
+            - codacy/checkout_and_version
+          cmd: make docker_build
+          filters:
+            branches:
+              ignore:
+                - master
+      - codacy/shell:
+          name: build_and_publish_docker
+          context: CodacyDocker
+          requires:
+            - codacy/checkout_and_version
+          cmd: |
+            export DOCKER_IMAGE_NAME=$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME
+            make docker_build && \
+              make push-docker-image && \
+              make push-latest-docker-image
+          filters:
+            branches:
+              only:
+                - master
+      - codacy/tag_version:
+          requires:
+            - build_and_publish_docker
+          filters:
+            branches:
+              only:
+                - master
